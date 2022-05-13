@@ -8,7 +8,7 @@ alpine Dockerfile with docker ,npm ,11-jdk-alpine, maven ,git, jfrog cli ,yarn, 
 4. For  git and localize see  Dockerfile in step1
 5. Add the [jfrog CLI](https://jfrog.com/getcli/) 
 6. For npm and yarn use [18-alpine3.14](https://github.com/nodejs/docker-node/blob/38ae136a31e276da1dc6ff6a129a4e429304582d/18/alpine3.14/Dockerfile) from https://hub.docker.com/_/node 
-7. For maven use [3.8.5-eclipse-temurin-11-alpine] in https://hub.docker.com/_/maven along with the ENTRYPOINT and CMD 
+7. For maven use [3.8.5-eclipse-temurin-11-alpine](https://github.com/carlossg/docker-maven/blob/925e49a1d0986070208e3c06a11c41f8f2cada82/eclipse-temurin-11-alpine/Dockerfile) in https://hub.docker.com/_/maven along with the [mvn-entrypoint.sh](https://github.com/carlossg/docker-maven/blob/925e49a1d0986070208e3c06a11c41f8f2cada82/eclipse-temurin-11-alpine/mvn-entrypoint.sh)  , [settings-docker.xml](https://github.com/carlossg/docker-maven/blob/925e49a1d0986070208e3c06a11c41f8f2cada82/eclipse-temurin-11-alpine/settings-docker.xml)
 
 **Build and push to Artifactory:**
 ```
