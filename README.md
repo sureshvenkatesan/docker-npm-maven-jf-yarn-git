@@ -12,18 +12,22 @@ alpine Dockerfile with docker ,npm ,11-jdk-alpine, maven ,git, jfrog cli ,yarn, 
 
 **Build and push to Artifactory:**
 ```
-docker rmi -f soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine
-docker build --tag soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine .
-docker push soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine
+docker rmi -f soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine
+docker build --tag soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine .
+docker push soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine
 ```
 Note: This image is 838 MB.
 
 **Usage:**
 ```
-docker run -it --rm --name my-maven-project -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven  soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine mvn verify
-docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine /bin/bash
-docker run -it --rm --name my-maven-project -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven -v /var/run/docker.sock:/var/run/docker.sock soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine docker ps
-docker run -it --rm --name my-maven-project -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven  soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine npm -version
-docker run -it --rm --name my-maven-project -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven soleng.jfrog.io/docker/docker20.10.16-npm18.1-maven3.8.5:11-jdk-alpine jf --version
+docker run -it --rm --name my-maven-project -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven  soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine mvn verify
+
+docker run --rm --name my-project -it -v /var/run/docker.sock:/var/run/docker.sock soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine /bin/bash
+
+docker run -it --rm --name my-project  -v /var/run/docker.sock:/var/run/docker.sock soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine docker ps
+
+docker run -it --rm --name my-project  soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine npm -version
+
+docker run -it --rm --name my-project  soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine jf --version
 ```
 **Note:** Actually npm , maven , gradle, openjdk ( based on Temurin), sdkman, go   is   in the Full [jfrog CLI](https://jfrog.com/getcli/) v2.16.4 image  ( not in the slim JFrog cli image) that is Ubuntu based ( hence image is 3.96 GB). The slim JFrog cli image is 53.6MB .
