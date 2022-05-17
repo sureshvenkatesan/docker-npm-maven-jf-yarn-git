@@ -31,3 +31,9 @@ docker run -it --rm --name my-project  soleng.jfrog.io/swampup2022-docker-local/
 docker run -it --rm --name my-project  soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine jf --version
 ```
 **Note:** Actually npm , maven , gradle, openjdk ( based on Temurin), sdkman, go   is   in the Full [jfrog CLI](https://jfrog.com/getcli/) v2.16.4 image  ( not in the slim JFrog cli image) that is Ubuntu based ( hence image is 3.96 GB). The slim JFrog cli image is 53.6MB .
+
+You can also mount your host ~/.m2 file to the docker container using the full path :
+For example for user joe on the host the mount path should be -v "/Users/joe/.m2":"/root/.m2"  as shown below
+```
+docker run --rm --name my-project -it -v /var/run/docker.sock:/var/run/docker.sock -v "/Users/joe/.m2":"/root/.m2" -v "$(pwd)":/usr/src/mymaven -w /usr/src/mymaven soleng.jfrog.io/swampup2022-docker-local/docker20.10.16-npm18.1-maven3.8.5-jf2.16.4:11-jdk-alpine mvn validate compile test package
+```
