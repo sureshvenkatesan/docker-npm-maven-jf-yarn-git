@@ -1,0 +1,179 @@
+# using latest  alpine image  used in 3.8.5-eclipse-temurin-11-alpine in https://hub.docker.com/_/maven
+# Only other files you want are in https://github.com/carlossg/docker-maven/tree/925e49a1d0986070208e3c06a11c41f8f2cada82/eclipse-temurin-11-alpine
+
+FROM eclipse-temurin:11-jdk-alpine
+
+## BEGIN install docker from https://hub.docker.com/_/docker i.e 20.10.16-alpine3.15
+# Note: removed most ofthe docker stuff as we will not need docker for the lab.
+RUN apk add --no-cache \
+        ca-certificates \
+# Workaround for golang not producing a static ctr binary on Go 1.15 and up https://github.com/containerd/containerd/issues/5824
+        libc6-compat \
+# DOCKER_HOST=ssh://... -- https://github.com/docker/cli/pull/1014
+        openssh-client
+
+# set up nsswitch.conf for Go's "netgo" implementation (which Docker explicitly uses)
+# - https://github.com/docker/docker-ce/blob/v17.09.0-ce/components/engine/hack/make.sh#L149
+# - https://github.com/golang/go/blob/go1.9.1/src/net/conf.go#L194-L275
+# - docker run --rm debian:stretch grep '^hosts:' /etc/nsswitch.conf
+RUN [ ! -e /etc/nsswitch.conf ] && echo 'hosts: files dns' > /etc/nsswitch.conf
+
+# also, ensure the directory pre-exists and has wide enough permissions for "dockerd-entrypoint.sh" to create subdirectories, even when run in "rootless" mode
+RUN mkdir /certs /certs/client && chmod 1777 /certs /certs/client
+## BEGIN install docker
+
+## BEGIN install git
+
+RUN apk update && apk upgrade && \
+    apk add --no-cache bash git openssh
+
+## END install git
+
+## BEGIN locale customization
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US.UTF-8 \
+    LC_CTYPE=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8
+RUN apk add --update --no-cache socat curl tzdata findutils
+
+#https://stackoverflow.com/questions/63142193/how-do-i-set-timezone-for-my-docker-container
+ENV TZ=America/Los_Angeles
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+## END locale customization
+
+# BEGIN install jfrog CLI
+RUN curl -fL https://install-cli.jfrog.io | sh
+# END install jfrog CLI
+
+## BEGIN of node from alpine (https://hub.docker.com/_/node -> 18-alpine3.14 i.e https://github.com/nodejs/docker-node/blob/38ae136a31e276da1dc6ff6a129a4e429304582d/18/alpine3.14/Dockerfile)
+#FROM alpine:3.14
+
+ENV NODE_VERSION 18.1.0
+
+RUN addgroup -g 1000 node \
+    && adduser -u 1000 -G node -s /bin/sh -D node \
+    && apk add --no-cache \
+        libstdc++ \
+    && apk add --no-cache --virtual .build-deps \
+        curl \
+    && ARCH= && alpineArch="$(apk --print-arch)" \
+      && case "${alpineArch##*-}" in \
+        x86_64) \
+          ARCH='x64' \
+          CHECKSUM="db44a0003c61313ba466a486508353d013bc651973581acd9b9f4c71024cc7df" \
+          ;; \
+        *) ;; \
+      esac \
+  && if [ -n "${CHECKSUM}" ]; then \
+    set -eu; \
+    curl -fsSLO --compressed "https://unofficial-builds.nodejs.org/download/release/v$NODE_VERSION/node-v$NODE_VERSION-linux-$ARCH-musl.tar.xz"; \
+    echo "$CHECKSUM  node-v$NODE_VERSION-linux-$ARCH-musl.tar.xz" | sha256sum -c - \
+      && tar -xJf "node-v$NODE_VERSION-linux-$ARCH-musl.tar.xz" -C /usr/local --strip-components=1 --no-same-owner \
+      && ln -s /usr/local/bin/node /usr/local/bin/nodejs; \
+  else \
+    echo "Building from source" \
+    # backup build
+    && apk add --no-cache --virtual .build-deps-full \
+        binutils-gold \
+        g++ \
+        gcc \
+        gnupg \
+        libgcc \
+        linux-headers \
+        make \
+        python3 \
+    # gpg keys listed at https://github.com/nodejs/node#release-keys
+    && for key in \
+      4ED778F539E3634C779C87C6D7062848A1AB005C \
+      141F07595B7B3FFE74309A937405533BE57C7D57 \
+      94AE36675C464D64BAFA68DD7434390BDBE9B9C5 \
+      74F12602B6F1C4E913FAA37AD3A89613643B6201 \
+      71DCFD284A79C3B38668286BC97EC7A07EDE3FC1 \
+      8FCCA13FEF1D0C2E91008E09770F7A9A5AE15600 \
+      C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8 \
+      C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C \
+      DD8F2338BAE7501E3DD5AC78C273792F7D83545D \
+      A48C2BEE680E841632CD4E44F07496B3EB3C1762 \
+      108F52B48DB57BB0CC439B2997B01419BD92F80A \
+      B9E2F5981AA6E0CD28160D9FF13993A75599653C \
+    ; do \
+      gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$key" || \
+      gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key" ; \
+    done \
+    && curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION.tar.xz" \
+    && curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" \
+    && gpg --batch --decrypt --output SHASUMS256.txt SHASUMS256.txt.asc \
+    && grep " node-v$NODE_VERSION.tar.xz\$" SHASUMS256.txt | sha256sum -c - \
+    && tar -xf "node-v$NODE_VERSION.tar.xz" \
+    && cd "node-v$NODE_VERSION" \
+    && ./configure \
+    && make -j$(getconf _NPROCESSORS_ONLN) V= \
+    && make install \
+    && apk del .build-deps-full \
+    && cd .. \
+    && rm -Rf "node-v$NODE_VERSION" \
+    && rm "node-v$NODE_VERSION.tar.xz" SHASUMS256.txt.asc SHASUMS256.txt; \
+  fi \
+  && rm -f "node-v$NODE_VERSION-linux-$ARCH-musl.tar.xz" \
+  && apk del .build-deps \
+  # smoke tests
+  && node --version \
+  && npm --version
+
+ENV YARN_VERSION 1.22.18
+
+RUN apk add --no-cache --virtual .build-deps-yarn curl gnupg tar \
+  && for key in \
+    6A010C5166006599AA17F08146C2130DFD2497F5 \
+  ; do \
+    gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$key" || \
+    gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key" ; \
+  done \
+  && curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" \
+  && curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz.asc" \
+  && gpg --batch --verify yarn-v$YARN_VERSION.tar.gz.asc yarn-v$YARN_VERSION.tar.gz \
+  && mkdir -p /opt \
+  && tar -xzf yarn-v$YARN_VERSION.tar.gz -C /opt/ \
+  && ln -s /opt/yarn-v$YARN_VERSION/bin/yarn /usr/local/bin/yarn \
+  && ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg \
+  && rm yarn-v$YARN_VERSION.tar.gz.asc yarn-v$YARN_VERSION.tar.gz \
+  && apk del .build-deps-yarn \
+  # smoke test
+  && yarn --version
+
+#COPY docker-entrypoint.sh /usr/local/bin/
+#ENTRYPOINT ["docker-entrypoint.sh"]
+
+#CMD [ "node" ]
+
+## END of node 
+
+## BEGIN of maven from alpine (https://github.com/carlossg/docker-maven/blob/master/jdk-8-alpine/Dockerfile)
+
+#FROM eclipse-temurin:11-jdk-alpine
+
+RUN apk add --no-cache curl tar bash procps
+
+ARG MAVEN_VERSION=3.8.5
+ARG USER_HOME_DIR="/root"
+ARG SHA=89ab8ece99292476447ef6a6800d9842bbb60787b9b8a45c103aa61d2f205a971d8c3ddfb8b03e514455b4173602bd015e82958c0b3ddc1728a57126f773c743
+ARG BASE_URL=https://apache.osuosl.org/maven/maven-3/${MAVEN_VERSION}/binaries
+
+RUN mkdir -p /usr/share/maven /usr/share/maven/ref \
+  && curl -fsSL -o /tmp/apache-maven.tar.gz ${BASE_URL}/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+  && echo "${SHA}  /tmp/apache-maven.tar.gz" | sha512sum -c - \
+  && tar -xzf /tmp/apache-maven.tar.gz -C /usr/share/maven --strip-components=1 \
+  && rm -f /tmp/apache-maven.tar.gz \
+  && ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
+
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
+
+COPY mvn-entrypoint.sh /usr/local/bin/mvn-entrypoint.sh
+COPY settings-docker.xml /usr/share/maven/ref/
+
+RUN chmod  755 /usr/local/bin/mvn-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/mvn-entrypoint.sh"]
+CMD ["mvn"]
