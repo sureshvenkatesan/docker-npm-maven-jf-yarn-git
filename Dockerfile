@@ -153,7 +153,7 @@ RUN mkdir /certs /certs/client && chmod 1777 /certs /certs/client
 ## BEGIN install git
 
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh
+    apk add --no-cache bash git openssh jq
 
 ## END install git
 
