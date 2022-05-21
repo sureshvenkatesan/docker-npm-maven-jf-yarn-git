@@ -151,9 +151,10 @@ RUN mkdir /certs /certs/client && chmod 1777 /certs /certs/client
 ## END install docker
 
 ## BEGIN install git
-
+# jq is needed in https://github.com/MaharshiPatel/SwampUp2022/blob/main/SUP016-Automate_everything_with_the_JFrog_CLI/lab-1/create_local_repos.sh
+# coreutils is needed for base64 --decode
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh jq
+    apk add --no-cache bash git openssh jq coreutils
 
 ## END install git
 
